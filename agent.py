@@ -21,25 +21,25 @@ def containers():
 
 def partitions():
     res, seen = [], set()
-    for l in open("/proc/self/mounts"):
+    mounts_file = f"{HOST}/proc/1/mounts"
+    if not os.path.exists(mounts_file):
+        return res
+    for l in open(mounts_file):
         p = l.split()
         if len(p) < 3:
             continue
         dev, mount, fstype = p[0], p[1], p[2]
-        if mount != HOST and not mount.startswith(HOST + "/"):
-            continue
         if fstype not in ("ext4", "xfs", "btrfs", "zfs") or not dev.startswith("/dev/"):
             continue
-        host_mount = mount[len(HOST):] or "/"
-        if host_mount in seen or host_mount.startswith(("/var/lib/docker", "/data/docker", "/snap", "/boot")):
+        if mount in seen or mount.startswith(("/var/lib/docker", "/data/docker", "/data/containerd", "/snap", "/boot")):
             continue
-        seen.add(host_mount)
+        seen.add(mount)
         try:
-            u = shutil.disk_usage(mount)
+            u = shutil.disk_usage(f"{HOST}{mount}" if mount != "/" else HOST)
         except OSError:
             continue
         res.append({
-            "mount": host_mount,
+            "mount": mount,
             "total_gb": round(u.total / 2**30, 1),
             "used_gb": round(u.used / 2**30, 1),
             "percent": round(u.used * 100 / u.total, 1),
